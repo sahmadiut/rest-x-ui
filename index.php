@@ -8,7 +8,6 @@ $clients = [
 //    '91.107.163.78'
 ];
 
-
 // Connect to the SQLite database path: /etc/x-ui/x-ui.db
 //$db = new PDO('sqlite:/etc/x-ui/x-ui.db');
 
@@ -56,6 +55,18 @@ ArrestDB::Serve('GET', function () {
             }
 
         }
+        elseif ($function == 'certpath') {
+            $query = array
+            (
+                sprintf("SELECT key, value FROM 'settings' where key is 'webKeyFile' or key is 'webCertFile' order by key;"),
+            );
+            $query = sprintf('%s;', implode(' ', $query));
+            $r = ArrestDB::Query($query);
+            $result = array(
+                'key' => $r[1]['value'],
+                'cert' => $r[0]['value']
+            );
+        }
         else
             $result = ArrestDB::$HTTP[404];
     }
@@ -102,7 +113,6 @@ ArrestDB::Serve('POST', function () {
         }
 
         if (is_null($query = array_shift($queries)) !== true) {
-//            echo var_export($query, true) . PHP_EOL;
             $result = ArrestDB::Query($query[0], $query[1]);
         }
 
@@ -111,7 +121,9 @@ ArrestDB::Serve('POST', function () {
         }
 
         else {
-            $result = ArrestDB::$HTTP[201];
+            $r = ArrestDB::$HTTP[201];
+            $r['id'] = $result;
+            $result = $r;
         }
     }
 
@@ -418,14 +430,10 @@ class ArrestDB
                 }
 
                 $data = array_slice(func_get_args(), 1);
-//                echo var_export($data, true). PHP_EOL;
 
                 if (count($data, COUNT_RECURSIVE) > count($data)) {
                     $data = iterator_to_array(new \RecursiveIteratorIterator(new \RecursiveArrayIterator($data)), false);
                 }
-
-                echo 'new data: ' .PHP_EOL;
-                echo var_export($data, true). PHP_EOL;
 
                 if ($result[$hash]->execute($data) === true) {
                     $sequence = null;
@@ -433,8 +441,6 @@ class ArrestDB
                     if ((strncmp($db->getAttribute(\PDO::ATTR_DRIVER_NAME), 'pgsql', 5) === 0) && (sscanf($query, 'INSERT INTO %s', $sequence) > 0)) {
                         $sequence = sprintf('%s_id_seq', trim($sequence, '"'));
                     }
-
-                    echo $sequence . PHP_EOL;
 
                     switch (strstr($query, ' ', true)) {
                         case 'INSERT':
@@ -521,8 +527,6 @@ class ArrestDB
 
             }
         } catch (\Exception $exception) {
-            echo 'exeption:'. PHP_EOL;
-            echo $exception->getMessage() . PHP_EOL;
             return false;
         }
 
